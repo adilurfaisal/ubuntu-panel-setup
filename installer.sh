@@ -10,13 +10,25 @@ PHP_VERSION="8.3"
 DB_USER="$APP_USER"
 
 # --- CREATE SYSTEM USER ---
+USER_PASSWORD=$(openssl rand -base64 12)
 if id "$APP_USER" &>/dev/null; then
     echo "✅ User '$APP_USER' already exists"
 else
     echo "➕ Creating Linux user: $APP_USER"
     useradd -m -s /bin/bash "$APP_USER"
-    echo "✅ User '$APP_USER' created"
+    echo "$APP_USER:$USER_PASSWORD" | chpasswd
+    echo "✅ User '$APP_USER' created with password"
 fi
+
+# --- ENABLE SSH PASSWORD LOGIN ---
+echo "🔧 Ensuring SSH allows password authentication..."
+SSHD_CONFIG="/etc/ssh/sshd_config"
+if grep -q "^PasswordAuthentication no" $SSHD_CONFIG; then
+    sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' $SSHD_CONFIG
+elif ! grep -q "^PasswordAuthentication" $SSHD_CONFIG; then
+    echo "PasswordAuthentication yes" >> $SSHD_CONFIG
+fi
+systemctl reload sshd
 
 # --- PACKAGE INSTALLATION ---
 echo "🔄 Updating system and installing dependencies..."
@@ -31,7 +43,6 @@ else
     systemctl enable mariadb
     systemctl start mariadb
 fi
-
 
 echo "➕ Adding PHP repository..."
 add-apt-repository ppa:ondrej/php -y
@@ -118,5 +129,7 @@ certbot --apache --non-interactive --agree-tos --redirect -m admin@$APP_DOMAIN -
 
 # --- DONE ---
 echo "✅ Laravel site is ready at: https://$APP_DOMAIN"
+echo "🔐 SSH login: $APP_USER"
+echo "🔐 SSH password: $USER_PASSWORD"
 echo "🔐 MariaDB user: $DB_USER"
 echo "🔐 MariaDB password: $DB_PASSWORD"
