@@ -9,8 +9,8 @@ SUB_DIR="/home/$APP_USER/public_html/$SUBDOMAIN"
 
 # --- CREATE DIRECTORY ---
 echo "📁 Creating subdomain directory: $SUB_DIR"
-mkdir -p "$SUB_DIR/public"
-echo "<h1>$SUBDOMAIN is live!</h1>" > "$SUB_DIR/public/index.html"
+mkdir -p "$SUB_DIR"
+echo "<h1>$SUBDOMAIN is live!</h1>" > "$SUB_DIR/index.html"
 chown -R "$APP_USER:$APP_USER" "$SUB_DIR"
 chmod -R 755 "$SUB_DIR"
 
@@ -20,9 +20,9 @@ cat <<EOF > /etc/apache2/sites-available/$SUBDOMAIN.conf
 <VirtualHost *:80>
     ServerName $SUBDOMAIN
     ServerAdmin webmaster@$SUBDOMAIN
-    DocumentRoot "$SUB_DIR/public"
+    DocumentRoot "$SUB_DIR"
 
-    <Directory "$SUB_DIR/public">
+    <Directory "$SUB_DIR">
         AllowOverride All
         Require all granted
     </Directory>
