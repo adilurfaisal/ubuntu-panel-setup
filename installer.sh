@@ -7,7 +7,7 @@ read -p "Enter your APP_DOMAIN (e.g. butechbd.com): " APP_DOMAIN
 APP_USER=$(echo "$APP_DOMAIN" | cut -d'.' -f1)
 APP_DIR="/home/$APP_USER/public_html/$APP_DOMAIN"
 PHP_VERSION="8.3"
-DB_USER="bupanel"
+DB_USER="$APP_USER"
 
 # --- CREATE SYSTEM USER ---
 if id "$APP_USER" &>/dev/null; then
@@ -21,7 +21,17 @@ fi
 # --- PACKAGE INSTALLATION ---
 echo "🔄 Updating system and installing dependencies..."
 apt update && apt upgrade -y
-apt install -y software-properties-common curl unzip git mariadb-server
+apt install -y software-properties-common curl unzip git
+
+if dpkg -l | grep -q mariadb-server; then
+    echo "✅ MariaDB is already installed"
+else
+    echo "📦 Installing MariaDB Server..."
+    apt install -y mariadb-server
+    systemctl enable mariadb
+    systemctl start mariadb
+fi
+
 
 echo "➕ Adding PHP repository..."
 add-apt-repository ppa:ondrej/php -y
