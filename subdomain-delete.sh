@@ -7,6 +7,7 @@ SUBDOMAIN="$SUB.$MAIN_DOMAIN"
 APP_USER=$(echo "$MAIN_DOMAIN" | cut -d'.' -f1)
 SUB_DIR="/home/$APP_USER/public_html/$SUBDOMAIN"
 VHOST_FILE="/etc/apache2/sites-available/$SUBDOMAIN.conf"
+VHOST_SSL_FILE="/etc/apache2/sites-available/$SUBDOMAIN-le-ssl.conf"
 
 # --- DISABLE SITE ---
 echo "🚫 Disabling Apache site for $SUBDOMAIN"
@@ -15,6 +16,7 @@ a2dissite "$SUBDOMAIN.conf"
 # --- DELETE VHOST CONFIG ---
 echo "🗑️ Removing virtual host config: $VHOST_FILE"
 rm -f "$VHOST_FILE"
+rm -f "$VHOST_SSL_FILE"
 
 # --- DELETE DIRECTORY ---
 echo "🗑️ Deleting subdomain directory: $SUB_DIR"
