@@ -12,10 +12,10 @@ APP_USER=$(echo "$MAIN_DOMAIN" | cut -d'.' -f1)
 read -p "Enter custom directory path (e.g. api.butechbd.com) (default: /home/$APP_USER/public_html/$SUBDOMAIN): " CUSTOM_DIR
 
 # Use default directory if not specified
-if [[ -z "$CUSTOM_DIR" ]]; then
-    SUB_DIR="/home/$APP_USER/public_html/$SUBDOMAIN"
-else
+if [[ -n "$CUSTOM_DIR" ]]; then
     SUB_DIR="/home/$APP_USER/public_html/$CUSTOM_DIR"
+else
+    SUB_DIR="/home/$APP_USER/public_html/$SUBDOMAIN"
 fi
 
 # --- CREATE DIRECTORY ---
