@@ -1,5 +1,17 @@
 #!/bin/bash
 
+gen_pass() {
+	matrix=$1
+	length=$2
+	if [ -z "$matrix" ]; then
+		matrix="A-Za-z0-9"
+	fi
+	if [ -z "$length" ]; then
+		length=16
+	fi
+	head /dev/urandom | tr -dc $matrix | head -c$length
+}
+
 # --- GET INPUT ---
 read -p "Enter your APP_DOMAIN (e.g. butechbd.com): " APP_DOMAIN
 
@@ -7,7 +19,9 @@ read -p "Enter your APP_DOMAIN (e.g. butechbd.com): " APP_DOMAIN
 APP_USER=$(echo "$APP_DOMAIN" | cut -d'.' -f1)
 APP_DIR="/home/$APP_USER/public_html/$APP_DOMAIN"
 PHP_VERSION="8.3"
-DB_USER="$APP_USER"
+DB_USER="root"
+APACHE_ENVVARS="/etc/apache2/envvars"
+MYSQL_CONFIG="/etc/mysql/mariadb.conf.d/50-server.cnf"
 
 # --- CREATE SYSTEM USER ---
 USER_PASSWORD=$(openssl rand -base64 12)
@@ -34,6 +48,7 @@ systemctl reload sshd
 echo "🔄 Updating system and installing dependencies..."
 apt update && apt upgrade -y
 apt install -y software-properties-common curl unzip git
+sudo apt install openjdk-8-jdk -y
 
 if dpkg -l | grep -q mariadb-server; then
     echo "✅ MariaDB is already installed"
@@ -64,41 +79,44 @@ mkdir -p "$APP_DIR"
 chown -R "$APP_USER:$APP_USER" "/home/$APP_USER"
 chmod -R 755 "/home/$APP_USER"
 
+
+echo "🔧 Updating Apache user to: $APP_USER"
+
+# --- BACKUP ENVVARS FILE ---
+sudo cp "$APACHE_ENVVARS" "${APACHE_ENVVARS}.bak"
+
+# --- REPLACE APACHE USER & GROUP IN ENVVARS ---
+sudo sed -i "s/^export APACHE_RUN_USER=.*/export APACHE_RUN_USER=$APP_USER/" "$APACHE_ENVVARS"
+sudo sed -i "s/^export APACHE_RUN_GROUP=.*/export APACHE_RUN_GROUP=$APP_USER/" "$APACHE_ENVVARS"
+
+# --- RESTART APACHE ---
+echo "🔁 Restarting Apache..."
+sudo systemctl restart apache2
+
 # --- CREATE DB USER ONLY ---
-DB_PASSWORD=$(openssl rand -base64 16)
+DB_PASSWORD=$(gen_pass)
 echo "🔐 Creating MariaDB user '$DB_USER' (no database)..."
-mysql -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD';"
+mysql -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASSWORD';"
 mysql -e "FLUSH PRIVILEGES;"
+
+# --- UPDATE MYSQL BIND ADDRESS ---
+echo "🌐 Updating MariaDB bind-address to 0.0.0.0"
+
+# BACKUP MySQL config file
+sudo cp "$MYSQL_CONFIG" "${MYSQL_CONFIG}.bak"
+
+# Change bind-address
+sudo sed -i "s/^bind-address\s*=.*/bind-address = 0.0.0.0/" "$MYSQL_CONFIG"
+
+# --- RESTART MYSQL ---
+echo "🔁 Restarting MariaDB..."
+sudo systemctl restart mariadb
 
 # --- COMPOSER ---
 echo "🎼 Installing Composer..."
 curl -sS https://getcomposer.org/installer | php
 mv composer.phar /usr/local/bin/composer
 
-# --- USER UPLOAD PROMPT ---
-echo "📤 Please upload your Laravel app to: $APP_DIR"
-read -p "Press Enter when the Laravel files are uploaded..."
-
-cd "$APP_DIR"
-
-# --- SET PERMISSIONS & INSTALL DEPENDENCIES ---
-echo "🔧 Setting permissions"
-chown -R $APP_USER:$APP_USER .
-chmod -R 775 storage bootstrap/cache 2>/dev/null
-
-echo "📦 Installing Laravel dependencies..."
-sudo -u $APP_USER composer install --no-interaction --prefer-dist --optimize-autoloader
-
-# --- ENV SETUP (if .env.example exists) ---
-if [ -f ".env.example" ]; then
-    cp .env.example .env
-    sed -i "s/DB_DATABASE=.*/DB_DATABASE=/" .env
-    sed -i "s/DB_USERNAME=.*/DB_USERNAME=$DB_USER/" .env
-    sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$DB_PASSWORD/" .env
-fi
-
-echo "🔑 Generating app key"
-sudo -u $APP_USER php artisan key:generate
 
 # --- Apache VirtualHost ---
 echo "🌐 Creating Apache virtual host: $APP_DOMAIN"
