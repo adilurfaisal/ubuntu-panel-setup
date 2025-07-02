@@ -57,8 +57,7 @@ systemctl reload apache2
 
 # --- INSTALL SSL CERT ---
 echo "🔒 Installing SSL certificate for $SUBDOMAIN"
-apt install -y certbot python3-certbot-apache
-certbot --apache --non-interactive --agree-tos --redirect -m admin@$SUBDOMAIN -d $SUBDOMAIN
+certbot --apache --non-interactive --agree-tos --redirect -m admin@$SUBDOMAIN -d $SUBDOMAIN --staging
 
 # --- DONE ---
 echo "✅ Subdomain is live: https://$SUBDOMAIN"
