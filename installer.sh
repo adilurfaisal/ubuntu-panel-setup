@@ -97,6 +97,7 @@ sudo systemctl restart apache2
 DB_PASSWORD=$(gen_pass)
 echo "🔐 Creating MariaDB user '$DB_USER' (no database)..."
 mysql -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASSWORD';"
+mysql -e "GRANT ALL PRIVILEGES ON *.* TO '$DB_USER'@'%' WITH GRANT OPTION;"
 mysql -e "FLUSH PRIVILEGES;"
 
 # --- UPDATE MYSQL BIND ADDRESS ---
